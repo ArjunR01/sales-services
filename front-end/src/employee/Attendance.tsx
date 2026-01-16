@@ -204,15 +204,15 @@ const Attendance: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Input
-            type="date"
+            type="text"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            // onChange={(e) => setSelectedDate(e.target.value)}
             className="w-[160px]"
           />
-          <Button variant="outline">
+          {/* <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Export
-          </Button>
+          </Button> */}
         </div>
       </div>
 

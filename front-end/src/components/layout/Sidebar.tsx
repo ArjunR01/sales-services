@@ -40,7 +40,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { title: 'Organization', href: '/organization', icon: Building2, roles: ['admin', 'hr'] },
-  { title: 'Employees', href: '/employees', icon: Users },
+  // { title: 'Employees', href: '/employees', icon: Users },
   { title: 'Attendance', href: '/attendance', icon: Clock },
   { title: 'Leave', href: '/leave', icon: Calendar, badge: '3' },
   { title: 'Payroll', href: '/payroll', icon: Wallet, roles: ['admin', 'hr', 'accounts'] },
@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
       <aside
         className={cn(
           'fixed left-0 top-0 z-50 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col',
-          isCollapsed ? 'w-20' : 'w-72',
+          isCollapsed ? 'w-20' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
@@ -168,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         </ScrollArea>
 
         {/* User section */}
-        {user && (
+        {/* {user && (
           <div className="p-4 border-t border-sidebar-border">
             <div className={cn('flex items-center gap-3', isCollapsed && 'justify-center')}>
               <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center shadow-sm">
@@ -184,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               )}
             </div>
           </div>
-        )}
+        )} */}
       </aside>
     </>
   );

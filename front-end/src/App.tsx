@@ -5,13 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import MainLayout from "@/components/layout/MainLayout";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Employees from "@/pages/Employees";
-import Attendance from "@/pages/Attendance";
-import Leave from "@/pages/Leave";
-import Payroll from "@/pages/Payroll";
-import NotFound from "./pages/NotFound";
+import Login from "@/employee/Login";
+import Dashboard from "@/employee/Dashboard";
+import Employees from "@/employee/Employees";
+import Attendance from "@/employee/Attendance";
+import Leave from "@/employee/Leave";
+import Payroll from "@/employee/Payroll";
+import NotFound from "./employee/NotFound";
 
 const queryClient = new QueryClient();
 
