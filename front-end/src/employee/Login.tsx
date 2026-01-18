@@ -9,13 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-const DEMO_CREDENTIALS = [
-  { email: 'admin@ssspl.com', password: 'admin123', role: 'Admin', color: 'bg-red-500' },
-  { email: 'hr@ssspl.com', password: 'hr123', role: 'HR', color: 'bg-purple-500' },
-  { email: 'manager@ssspl.com', password: 'manager123', role: 'Manager', color: 'bg-blue-500' },
-  { email: 'employee@ssspl.com', password: 'employee123', role: 'Employee', color: 'bg-green-500' },
-  { email: 'accounts@ssspl.com', password: 'accounts123', role: 'Accounts', color: 'bg-amber-500' },
-];
+
+
+// const DEMO_CREDENTIALS = [
+//   { email: 'admin@ssspl.com', password: 'admin123', role: 'Admin', color: 'bg-red-500' },
+//   { email: 'hr@ssspl.com', password: 'hr123', role: 'HR', color: 'bg-purple-500' },
+//   { email: 'manager@ssspl.com', password: 'manager123', role: 'Manager', color: 'bg-blue-500' },
+//   { email: 'employee@ssspl.com', password: 'employee123', role: 'Employee', color: 'bg-green-500' },
+//   { email: 'accounts@ssspl.com', password: 'accounts123', role: 'Accounts', color: 'bg-amber-500' },
+// ];
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -23,7 +25,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, isDemoMode } = useAuth();
+  const { login } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,20 +40,34 @@ const Login: React.FC = () => {
       });
       navigate('/dashboard');
     } catch (error: any) {
-      toast({
-        title: 'Login failed',
-        description: error.message || error.response?.data?.message || 'Invalid credentials. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
+  let message = 'Something went wrong';
+
+  if (error.response) {
+    // Backend responded (401, 400, 500...)
+    message = error.response.data?.detail || 'Request failed';
+  } else if (error.request) {
+    // No response from backend
+    message = 'Backend not reachable';
+  } else {
+    // Axios config error
+    message = error.message;
+  }
+
+  toast({
+    title: 'Login failed',
+    description: message,
+    variant: 'destructive',
+  });
+}
+ finally {
       setIsLoading(false);
     }
   };
 
-  const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-  };
+  // const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
+  //   setEmail(demoEmail);
+  //   setPassword(demoPassword);
+  // };
 
   return (
     <div className="min-h-screen flex">
@@ -194,7 +210,7 @@ const Login: React.FC = () => {
               </form>
 
               {/* Demo Mode Credentials */}
-              {isDemoMode && (
+              {/* {isDemoMode && (
                 <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed">
                   <div className="flex items-center gap-2 mb-3">
                     <Users className="h-4 w-4 text-muted-foreground" />
@@ -234,7 +250,7 @@ const Login: React.FC = () => {
                     Click any account to auto-fill credentials
                   </p>
                 </div>
-              )}
+              )} */}
 
               <div className="mt-6 text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Calendar,
@@ -30,83 +30,109 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+
+import { attendanceAPI } from '@/lib/api';
+
+
+
+
 /* ================= MOCK ATTENDANCE DATA ================= */
 
-const attendanceData = [
-  {
-    id: '1',
-    date: '2026-01-12',
-    inTime: '09:05',
-    outTime: '18:30',
-    totalHours: 9.42,
-    status: 'present',
-    lateBy: 5,
-    overtime: 30,
-  },
-  {
-    id: '2',
-    date: '2026-01-11',
-    inTime: '09:45',
-    outTime: '18:15',
-    totalHours: 8.5,
-    status: 'late',
-    lateBy: 45,
-    overtime: 15,
-  },
-  {
-    id: '3',
-    date: '2026-01-10',
-    inTime: '-',
-    outTime: '-',
-    totalHours: 0,
-    status: 'absent',
-    lateBy: 0,
-    overtime: 0,
-  },
-  {
-    id: '4',
-    date: '2026-01-09',
-    inTime: '-',
-    outTime: '-',
-    totalHours: 0,
-    status: 'on-leave',
-    lateBy: 0,
-    overtime: 0,
-  },
-];
+// const attendanceData = [
+//   {
+//     id: '1',
+//     date: '2026-01-12',
+//     inTime: '09:05',
+//     outTime: '18:30',
+//     totalHours: 9.42,
+//     status: 'present',
+//     lateBy: 5,
+//     overtime: 30,
+//   },
+//   {
+//     id: '2',
+//     date: '2026-01-11',
+//     inTime: '09:45',
+//     outTime: '18:15',
+//     totalHours: 8.5,
+//     status: 'late',
+//     lateBy: 45,
+//     overtime: 15,
+//   },
+//   {
+//     id: '3',
+//     date: '2026-01-10',
+//     inTime: '-',
+//     outTime: '-',
+//     totalHours: 0,
+//     status: 'absent',
+//     lateBy: 0,
+//     overtime: 0,
+//   },
+//   {
+//     id: '4',
+//     date: '2026-01-09',
+//     inTime: '-',
+//     outTime: '-',
+//     totalHours: 0,
+//     status: 'on-leave',
+//     lateBy: 0,
+//     overtime: 0,
+//   },
+// ];
+
+
+// const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+// const [loading, setLoading] = useState(false);
+
+
+type AttendanceRecord = {
+  id: number;
+  date: string;
+  punch_in?: string;
+  punch_out?: string;
+  total_hours: number;
+  status: 'present' | 'absent' | 'late' | 'on-leave';
+  late_minutes: number;
+  overtime_minutes: number;
+};
+
+
+
+
 
 /* ================= STATS (UNCHANGED) ================= */
 
-const statsCards = [
-  {
-    title: 'Present',
-    value: '231',
-    percentage: '93.1%',
-    icon: CheckCircle2,
-    color: 'bg-success/10 text-success',
-  },
-  {
-    title: 'Absent',
-    value: '8',
-    percentage: '3.2%',
-    icon: XCircle,
-    color: 'bg-destructive/10 text-destructive',
-  },
-  {
-    title: 'Late Arrivals',
-    value: '12',
-    percentage: '4.8%',
-    icon: Timer,
-    color: 'bg-warning/10 text-warning',
-  },
-  {
-    title: 'On Leave',
-    value: '9',
-    percentage: '3.6%',
-    icon: Calendar,
-    color: 'bg-info/10 text-info',
-  },
-];
+// const statsCards = [
+//   {
+//     title: 'Present',
+//     value: '231',
+//     percentage: '93.1%',
+//     icon: CheckCircle2,
+//     color: 'bg-success/10 text-success',
+//   },
+//   {
+//     title: 'Absent',
+//     value: '8',
+//     percentage: '3.2%',
+//     icon: XCircle,
+//     color: 'bg-destructive/10 text-destructive',
+//   },
+//   {
+//     title: 'Late Arrivals',
+//     value: '12',
+//     percentage: '4.8%',
+//     icon: Timer,
+//     color: 'bg-warning/10 text-warning',
+//   },
+//   {
+//     title: 'On Leave',
+//     value: '9',
+//     percentage: '3.6%',
+//     icon: Calendar,
+//     color: 'bg-info/10 text-info',
+//   },
+// ];
 
 /* ================= DATE FORMAT HELPER ================= */
 
@@ -118,24 +144,160 @@ const formatDateDDMMYYYY = (dateStr: string) => {
   return `${day}-${month}-${year}`;
 };
 
+const calculateWorkingHours = (punchIn?: string, punchOut?: string) => {
+  if (!punchIn || !punchOut) return '-';
+
+  const [inH, inM] = punchIn.split(':').map(Number);
+  const [outH, outM] = punchOut.split(':').map(Number);
+
+  const inMinutes = inH * 60 + inM;
+  const outMinutes = outH * 60 + outM;
+
+  if (outMinutes <= inMinutes) return '-';
+
+  const diffMinutes = outMinutes - inMinutes;
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+};
+
+
 const Attendance: React.FC = () => {
+  // const [selectedDate, setSelectedDate] = useState('');
+  // const [statusFilter, setStatusFilter] = useState('all');
+
   const [selectedDate, setSelectedDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+  PRESENT: 0,
+  ABSENT: 0,
+  LATE: 0,
+  ON_LEAVE: 0,
+  HALF_DAY: 0,
+  HOLIDAY: 0,
+});
+
+  const today = new Date();
+  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+
+
+
+
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  const fetchAttendance = async () => {
+  try {
+    setLoading(true);
+
+    const response = await attendanceAPI.getMyAttendance({
+      page,
+      limit,
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+    });
+
+    setAttendanceData(response.data.items);
+
+    // pick today's record if exists
+    const today = new Date().toISOString().split('T')[0];
+    const todayRecord = response.data.items.find(
+      (r: AttendanceRecord) => r.date === today
+    );
+
+    setTodayAttendance(todayRecord || null);
+
+    setTotalPages(response.data.total_pages);
+    setTotalRecords(response.data.total);
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to load attendance data',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const formatTime = (time?: string) => {
+  if (!time) return '-';
+  return time.slice(0, 5); // HH:MM
+};
+
+
+const fetchStats = async () => {
+  try {
+    const response = await attendanceAPI.getMyStats();
+    setStats(response.data);
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to load attendance stats',
+      variant: 'destructive',
+    });
+  }
+};
+
+
+
+
+useEffect(() => {
+  fetchAttendance();
+  fetchStats();
+}, [page, statusFilter]);
+
+
+
+
+
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handlePunchIn = () => {
-    toast({
-      title: 'Punched In Successfully',
-      description: `You have punched in at ${new Date().toLocaleTimeString('en-IN')}`,
-    });
-  };
+  const handlePunchIn = async () => {
+  try {
+    await attendanceAPI.punchIn();
 
-  const handlePunchOut = () => {
     toast({
-      title: 'Punched Out Successfully',
-      description: `You have punched out at ${new Date().toLocaleTimeString('en-IN')}`,
+      title: 'Punched In',
+      description: 'Punch in recorded successfully',
     });
+
+    fetchAttendance();
+    fetchStats();
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Punch in failed',
+      variant: 'destructive',
+    });
+  }
+};
+
+  const handlePunchOut = async () => {
+    try {
+      await attendanceAPI.punchOut();
+
+      toast({
+        title: 'Punched Out',
+        description: 'Punch out recorded successfully',
+      });
+
+      fetchAttendance();
+      fetchStats();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Punch out failed',
+        variant: 'destructive',
+      });
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -197,11 +359,13 @@ const Attendance: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handlePunchIn} className="bg-success hover:bg-success/90" disabled>
+              <Button onClick={handlePunchIn} className="bg-success hover:bg-success/90" 
+              disabled={isWeekend || !!todayAttendance?.punch_in}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Punch In
               </Button>
-              <Button onClick={handlePunchOut} className="bg-destructive hover:bg-destructive/90">
+              <Button onClick={handlePunchOut} className="bg-destructive hover:bg-destructive/90"
+              disabled={isWeekend || !todayAttendance?.punch_in ||!!todayAttendance?.punch_out}>
                 <XCircle className="h-4 w-4 mr-2" />
                 Punch Out
               </Button>
@@ -212,80 +376,126 @@ const Attendance: React.FC = () => {
 
       {/* Stats (UNCHANGED) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((stat, index) => (
-          <Card key={index} className="card-hover">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mt-1">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.percentage}</p>
-                </div>
-                <div className={`p-3 rounded-xl ${stat.color}`}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      <Card>
-  <CardHeader className="pb-2">
+  {/* PRESENT */}
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Present</p>
+          <p className="text-2xl font-bold mt-1">{stats.PRESENT}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-success/10 text-success">
+          <CheckCircle2 className="h-6 w-6" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* ABSENT */}
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Absent</p>
+          <p className="text-2xl font-bold mt-1">{stats.ABSENT}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-destructive/10 text-destructive">
+          <XCircle className="h-6 w-6" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* LATE */}
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Late</p>
+          <p className="text-2xl font-bold mt-1">{stats.LATE}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-warning/10 text-warning">
+          <Timer className="h-6 w-6" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* ON LEAVE */}
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">On Leave</p>
+          <p className="text-2xl font-bold mt-1">{stats.ON_LEAVE}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-info/10 text-info">
+          <Calendar className="h-6 w-6" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+</div>
+
+
+      {/* <Card> */}
+  {/* <CardHeader className="pb-2">
     <CardTitle className="text-base font-semibold">
       Filter Attendance
     </CardTitle>
-  </CardHeader>
+  </CardHeader> */}
 
-  <CardContent className="p-4">
-    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+  {/* <CardContent className="p-4"> */}
+    {/* <div className="flex flex-col sm:flex-row sm:items-end gap-3"> */}
       
       {/* Date Filter */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">
-          Date
-        </label>
-        <Input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-full sm:w-[160px]"
-        />
-      </div>
+      {/* <div className="flex flex-col gap-1"> */}
+        {/* <label className="text-xs text-muted-foreground"> */}
+          {/* Date */}
+        {/* </label> */}
+        {/* <Input */}
+          {/* type="date" */}
+          {/* value={selectedDate} */}
+          {/* onChange={(e) => setSelectedDate(e.target.value)} */}
+          {/* className="w-full sm:w-[160px]" */}
+        {/* /> */}
+      {/* </div> */}
 
       {/* Status Filter */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">
-          Status
-        </label>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="present">Present</SelectItem>
-            <SelectItem value="absent">Absent</SelectItem>
-            <SelectItem value="late">Late</SelectItem>
-            <SelectItem value="on-leave">On Leave</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* <div className="flex flex-col gap-1"> */}
+        {/* <label className="text-xs text-muted-foreground"> */}
+          {/* Status */}
+        {/* </label> */}
+        {/* <Select value={statusFilter} onValueChange={setStatusFilter}> */}
+          {/* <SelectTrigger className="w-full sm:w-[150px]"> */}
+            {/* <SelectValue placeholder="All Status" /> */}
+          {/* </SelectTrigger> */}
+          {/* <SelectContent> */}
+            {/* <SelectItem value="all">All Status</SelectItem> */}
+            {/* <SelectItem value="PRESENT">Present</SelectItem> */}
+            {/* <SelectItem value="ABSENT">Absent</SelectItem> */}
+            {/* <SelectItem value="LATE">Late</SelectItem> */}
+            {/* <SelectItem value="ON_LEAVE">On Leave</SelectItem> */}
+          {/* </SelectContent> */}
+        {/* </Select> */}
+      {/* </div> */}
 
       {/* Clear Button */}
-      {selectedDate && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start sm:self-end"
-          onClick={() => setSelectedDate('')}
-        >
-          Clear
-        </Button>
-      )}
-    </div>
-  </CardContent>
-</Card>
+      {/* {selectedDate && ( */}
+        {/* <Button */}
+          {/* variant="ghost" */}
+          {/* size="sm" */}
+          {/* className="self-start sm:self-end" */}
+          {/* onClick={() => setSelectedDate('')} */}
+        {/* > */}
+          {/* Clear */}
+        {/* </Button> */}
+      {/* )} */}
+    {/* </div> */}
+  {/* </CardContent> */}
+{/* </Card> */}
 
 
       {/* Attendance Table */}
@@ -310,6 +520,16 @@ const Attendance: React.FC = () => {
               </TableHeader>
 
               <TableBody>
+
+                                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      Loading attendance...
+                    </TableCell>
+                  </TableRow>
+                )}
+
+
                 {filteredData.map((record) => {
                   const day = new Date(record.date).toLocaleDateString('en-IN', {
                     weekday: 'long',
@@ -323,23 +543,26 @@ const Attendance: React.FC = () => {
                         </p>
                         <p className="text-sm text-muted-foreground">{day}</p>
                       </TableCell>
-                      <TableCell>{record.inTime}</TableCell>
-                      <TableCell>{record.outTime}</TableCell>
+                      <TableCell>{formatTime(record.punch_in)}</TableCell>
+                      <TableCell>{formatTime(record.punch_out)}</TableCell>
                       <TableCell>
-                        {record.totalHours > 0
-                          ? `${record.totalHours.toFixed(1)}h`
-                          : '-'}
+                        {/* {record.total_hours > 0
+                          ? `${parseInt(record.punch_out.substring(0, 2)) - parseInt(record.punch_in.substring(0, 2))}h`
+                          : '-'} */}
+                          {/* <TableCell> */}
+  {calculateWorkingHours(record.punch_in, record.punch_out)}
+{/* </TableCell> */}
                       </TableCell>
                       <TableCell>
-                        {record.lateBy > 0 ? (
-                          <span className="text-warning">{record.lateBy} min</span>
+                        {record.late_minutes > 0 ? (
+                          <span className="text-warning">{record.late_minutes} min</span>
                         ) : (
                           '-'
                         )}
                       </TableCell>
                       <TableCell>
-                        {record.overtime > 0 ? (
-                          <span className="text-success">{record.overtime} min</span>
+                        {record.overtime_minutes > 0 ? (
+                          <span className="text-success">{record.overtime_minutes} min</span>
                         ) : (
                           '-'
                         )}
@@ -354,17 +577,29 @@ const Attendance: React.FC = () => {
 
           <div className="flex items-center justify-between mt-4">
             <span className="text-sm text-muted-foreground">
-              Showing {filteredData.length} records
+              Showing page {page} of {totalPages} ({totalRecords} records)
             </span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              <Button
+  variant="outline"
+  size="sm"
+  disabled={page === 1}
+  onClick={() => setPage((p) => p - 1)}
+>
+  <ChevronLeft className="h-4 w-4 mr-1" />
+  Previous
+</Button>
+
+<Button
+  variant="outline"
+  size="sm"
+  disabled={page === totalPages}
+  onClick={() => setPage((p) => p + 1)}
+>
+  Next
+  <ChevronRight className="h-4 w-4 ml-1" />
+</Button>
+
             </div>
           </div>
         </CardContent>
