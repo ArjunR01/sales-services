@@ -18,15 +18,26 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # ---------------- PASSWORD ---------------- #
 
+# def hash_password(password: str) -> str:
+#     return pwd_context.hash(password)
+
+# def verify_password(plain: str, hashed: str) -> bool:
+#     return pwd_context.verify(plain, hashed)
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt max length = 72 bytes
+    safe_password = password.strip()[:72]
+    return pwd_context.hash(safe_password)
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    safe_password = plain.strip()[:72]
+    return pwd_context.verify(safe_password, hashed)
+
 
 # ---------------- TOKEN ---------------- #
 
